@@ -3,53 +3,53 @@ using System.Collections.Generic;
 
 namespace Avro.SchemaGen
 {
-    public class ReferenceGraph<I, T>
+    public class DAG<I, T>
     {
         private static object _sync = new object();
 
-        private Dictionary<I, ClassNode> _allNodes = new Dictionary<I, ClassNode>();
-        private Dictionary<I, ClassNode> _rootNodes = new Dictionary<I, ClassNode>();
+        private Dictionary<I, Node> _allNodes = new Dictionary<I, Node>();
+        private Dictionary<I, Node> _rootNodes = new Dictionary<I, Node>();
 
-        public class ClassNode
+        public class Node
         {
-            private List<ClassNode> _references = new List<ClassNode>();
+            private List<Node> _references = new List<Node>();
 
             public I Id { get; set; }
 
             public T Value { get; set; }
 
-            public List<ClassNode> References { get => _references; }
+            public List<Node> Edges { get => _references; }
 
-            public void AddReference(ClassNode node)
+            public void AddEdge(Node node)
             {
                 _references.Add(node);
             }
         }
 
-        public Dictionary<I, ClassNode> AllNodes { get => _allNodes; }
+        public Dictionary<I, Node> AllNodes { get => _allNodes; }
 
-        public Dictionary<I, ClassNode> RootNodes { get => _rootNodes; }
+        public Dictionary<I, Node> RootNodes { get => _rootNodes; }
 
-        public void AddOrUpdateClass(I id, T value)
+        public void AddOrUpdateNode(I id, T value)
         {
             lock (_sync)
             {
                 if (AllNodes.ContainsKey(id))
                 {
-                    ClassNode node;
+                    Node node;
                     AllNodes.TryGetValue(id, out node);
                     node.Value = value;
                 }
                 else
                 {
-                    var node = new ClassNode() { Id = id, Value = value };
+                    var node = new Node() { Id = id, Value = value };
                     AllNodes.Add(id, node);
                     RootNodes.Add(id, node);
                 }
             }
         }
 
-        public void AddReference(I from, I to)
+        public void AddEdge(I from, I to)
         {
             lock (_sync)
             {
@@ -60,7 +60,7 @@ namespace Avro.SchemaGen
 
                 if (!AllNodes.ContainsKey(to))
                 {
-                    AddOrUpdateClass(to, default(T));
+                    AddOrUpdateNode(to, default(T));
                 }
 
                 if (RootNodes.ContainsKey(to))
@@ -68,11 +68,11 @@ namespace Avro.SchemaGen
                     RootNodes.Remove(to);
                 }
 
-                ClassNode fromNode;
+                Node fromNode;
                 AllNodes.TryGetValue(from, out fromNode);
-                ClassNode toNode;
+                Node toNode;
                 AllNodes.TryGetValue(to, out toNode);
-                fromNode.AddReference(toNode);
+                fromNode.AddEdge(toNode);
             }
         }
     }

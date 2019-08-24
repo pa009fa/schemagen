@@ -51,7 +51,7 @@ namespace test.name.space
 
         public string myString { get; set; }
 
-        [SchemaNull]
+        [AvroNull]
         public object myNull { get; set; }
 
         public byte[] myFixed { get; set; }
@@ -69,8 +69,11 @@ namespace test.name.space
 
         public Dictionary<string, newRec> myMap2 { get; set; }
 
+        [AvroUnion(typeof(MyEnum), typeof(A), null)]
+        [AvroDefault("\"B\"")]
         public object myObject { get; set; }
 
+        [AvroUnion(typeof(double), typeof(string), null)]
         public List<List<object>> myArray3 { get; set; }
     }
 }

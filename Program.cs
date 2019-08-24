@@ -3,7 +3,6 @@ using System.IO;
 using System.Collections.Generic;
 using Microsoft.CodeAnalysis.CSharp;
 using CommandLine;
-using Avro;
 using Avro.SchemaGen;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -21,9 +20,11 @@ namespace SchemaRegistry
         [Option('t', "target", Required = true, Default = null, HelpText = "File name of the type to generate")]
         public string Target { get; set; }
 
+        [Option('d', "defaultconverters", Required = true, Default = null, HelpText = "Default converters")]
+        public string DefaultConverters { get; set; }
+
         [Option('c', "converters", Required = true, Default = null, HelpText = "Default converters")]
         public string Converters { get; set; }
-
     }
     class Program
     {
@@ -31,10 +32,11 @@ namespace SchemaRegistry
         {
 
             Dictionary<string,string> defaultConverters = null;
-            if (opts.Converters != null)
+            Dictionary<string,string> converters = null;
+            if (opts.DefaultConverters != null)
             {
                 defaultConverters = new Dictionary<string, string>();
-                var x = opts.Converters.Split(",");
+                var x = opts.DefaultConverters.Split(",");
                 foreach (var c in x)
                 {
                     var y = c.Split(":");
@@ -45,8 +47,24 @@ namespace SchemaRegistry
                     defaultConverters.Add(y[0],y[1]);
                 }
             }
-            var graph = new ReferenceGraph<string, JToken>();
-            var walker = new SchemaBuilder(defaultConverters, null, graph);
+            if (opts.Converters != null)
+            {
+                converters = new Dictionary<string, string>();
+                var x = opts.Converters.Split(",");
+                foreach (var c in x)
+                {
+                    var y = c.Split(":");
+                    if (y.Length != 2)
+                    {
+                        throw new Exception($"Converter {c} should be \"CSharpType:AvroType\"");
+                    }
+                    converters.Add(y[0],y[1]);
+                }
+            }
+
+            var graph = new DAG<string, JToken>();
+            var protocolTypes = new ProtocolTypes(defaultConverters, converters, null, graph);
+            var walker = new StaticCodeBuilder(protocolTypes);
 
             foreach (var f in opts.Includes.Split(","))
             {
@@ -67,22 +85,12 @@ namespace SchemaRegistry
                     catch (Exception e)
                     {
                         Console.Error.WriteLine($"Error parsing file {file}: {e.Message}");
+                        Console.Error.WriteLine(e.StackTrace);
+                        throw;
                     }
                 }
             }
-            var protocolTypes = new JArray();
-            var searcher = new ReferenceGraphDepthFirstTraverser<string,JToken>(graph);
-            searcher.Visit((n, j)=> {
-                if (j==null) 
-                {
-                    throw new Exception($"Type {n} not found in parsed files");
-                }
-                protocolTypes.Add(j);
-            });
-            var protocol = new JObject();
-            protocol.Add("protocol", "myProtocol");
-            protocol.Add("types", protocolTypes);
-            var avroProtocol = Protocol.Parse(protocol.ToString());
+            var avroProtocol = protocolTypes.GetProtocol();
             foreach (var schema in avroProtocol.Types)
             {
                 if (schema.Fullname == opts.Target)
@@ -105,7 +113,7 @@ namespace SchemaRegistry
 
         // allow mix of C# classes and schema types defined in json
         // not complete
-        void ProcessJsonType(JToken jtok, string parent, ReferenceGraph<string, JToken> references)
+        void ProcessJsonType(JToken jtok, string parent, DAG<string, JToken> references)
         {
             switch (jtok)
             {

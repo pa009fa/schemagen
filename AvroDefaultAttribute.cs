@@ -23,10 +23,16 @@ using System.Reflection;
 namespace Avro.SchemaGen
 {
     /// <summary>
-    /// Attribute that specifies whether a property is optional (nullable)
+    /// Attribute that specifies Avro default value
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
-    public class SchemaOptionalAttribute : Attribute
+    public class AvroDefaultAttribute : Attribute
     {
+        public string JsonDefaultValue { get; set; }
+
+        public AvroDefaultAttribute(string jsonDefaultValue)
+        {
+            JsonDefaultValue = jsonDefaultValue;
+        }
     }
 }

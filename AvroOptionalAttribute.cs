@@ -26,7 +26,7 @@ namespace Avro.SchemaGen
     /// Attribute that specifies whether a property is optional (nullable)
     /// </summary>
     [AttributeUsage(AttributeTargets.Property, AllowMultiple = false)]
-    public class SchemaNullAttribute : Attribute
+    public class AvroOptionalAttribute : Attribute
     {
     }
 }
